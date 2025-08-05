@@ -19,6 +19,14 @@ mini-complete-example/sbt/*.jar
 #Emacs
 *~
 
+#vscode
+.vscode/
+
+#metals
+.bloop/
+.metals
+metals.sbt
+
 #ignore the metastore
 metastore_db/*
 
@@ -150,4 +158,3 @@ docs/_build/
 # Autoenv
 .env
 *~
-
