@@ -31,6 +31,23 @@ class DynamoStreamReplicationIntegrationTest extends MigratorSuiteWithDynamoDBLo
       .toList
 
   withTable(tableName).test("should correctly apply UPSERT and DELETE operations from a stream") { _ =>
+    targetAlternator().createTable(
+      CreateTableRequest
+        .builder()
+        .tableName(tableName)
+        .keySchema(KeySchemaElement.builder().attributeName("id").keyType(KeyType.HASH).build())
+        .attributeDefinitions(
+          AttributeDefinition.builder().attributeName("id").attributeType(ScalarAttributeType.S).build()
+        )
+        .provisionedThroughput(
+          ProvisionedThroughput.builder().readCapacityUnits(25L).writeCapacityUnits(25L).build()
+        )
+        .build()
+    )
+    targetAlternator()
+      .waiter()
+      .waitUntilTableExists(DescribeTableRequest.builder().tableName(tableName).build())
+
     sourceDDb().putItem(
       PutItemRequest
         .builder()
