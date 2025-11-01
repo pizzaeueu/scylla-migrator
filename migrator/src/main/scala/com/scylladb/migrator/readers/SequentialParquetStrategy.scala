@@ -1,0 +1,82 @@
+package com.scylladb.migrator.readers
+
+import com.scylladb.migrator.config.{ MigratorConfig, SourceSettings, TargetSettings }
+import com.scylladb.migrator.scylla.{ ScyllaParquetMigrator, SourceDataFrame }
+import org.apache.log4j.LogManager
+import org.apache.spark.sql.SparkSession
+
+import scala.util.Using
+
+/**
+  * Sequential Parquet processing strategy with savepoint support.
+  *
+  * Processes Parquet files one-by-one, marking each file as completed after successful
+  * processing. This enables resuming from the last completed file if the migration is
+  * interrupted.
+  *
+  * Use this strategy when:
+  * - Savepoints are required to resume interrupted migrations
+  * - The migration involves many large files that may take hours or days
+  * - Resilience to failures is more important than absolute maximum performance
+  *
+  * Trade-off: Adds ~10-20% overhead compared to parallel processing due to
+  * per-file Spark job overhead, but provides reliable progress tracking.
+  */
+class SequentialParquetStrategy extends ParquetProcessingStrategy {
+  private val log = LogManager.getLogger("com.scylladb.migrator.readers.SequentialParquetStrategy")
+
+  override def migrate(config: MigratorConfig,
+                       source: SourceSettings.Parquet,
+                       target: TargetSettings.Scylla)(implicit spark: SparkSession): Unit = {
+    log.info("Using SEQUENTIAL processing mode (with savepoints, file-by-file)")
+
+    val preparedReader = Parquet.prepareParquetReader(
+      spark,
+      source,
+      config.getSkipParquetFilesOrEmptySet
+    )
+
+    val savepointsManager = ParquetSavepointsManager(
+      config,
+      spark.sparkContext
+    )
+
+    Using.resource(savepointsManager) { manager =>
+      preparedReader.configureHadoop(spark)
+
+      val filesToProcess = preparedReader.filesToProcess
+      val totalFiles = filesToProcess.size
+
+      if (totalFiles == 0) {
+        log.info(
+          "No Parquet files to process. Migration may be complete or all files already processed.")
+      } else {
+        log.info(s"Starting sequential Parquet migration: processing $totalFiles files")
+
+        filesToProcess.zipWithIndex.foreach {
+          case (filePath, index) =>
+            val fileNum = index + 1
+            log.info(s"Processing file $fileNum/$totalFiles: $filePath")
+
+            val singleFileDF = spark.read.parquet(filePath)
+            val sourceDF = SourceDataFrame(singleFileDF, None, savepointsSupported = false)
+
+            ScyllaParquetMigrator.migrate(
+              config,
+              target,
+              sourceDF,
+              manager
+            )
+
+            manager.markFileAsProcessed(filePath)
+            log.info(s"Successfully processed file $fileNum/$totalFiles: $filePath")
+        }
+
+        manager.dumpMigrationState("completed")
+
+        log.info(
+          s"Sequential Parquet migration completed successfully: $totalFiles files processed")
+      }
+    }
+  }
+}
