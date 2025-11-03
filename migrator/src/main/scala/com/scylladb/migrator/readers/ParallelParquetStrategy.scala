@@ -25,33 +25,13 @@ class ParallelParquetStrategy extends ParquetProcessingStrategy {
                        target: TargetSettings.Scylla)(implicit spark: SparkSession): Unit = {
     log.info("Using PARALLEL processing mode (no savepoints, maximum performance)")
 
-    val preparedReader = Parquet.prepareParquetReader(
-      spark,
-      source,
-      config.getSkipParquetFilesOrEmptySet
-    )
+    Parquet.configureHadoopCredentials(spark, source)
 
-    preparedReader.configureHadoop(spark)
-
-    val filesToRead = preparedReader.filesToProcess
-
-    if (filesToRead.isEmpty) {
-      log.warn("No files to process after filtering. Migration may be complete.")
-      return
-    }
-
-    log.info(s"Reading ${filesToRead.size} Parquet files in parallel")
-
-    val df = if (filesToRead.size == 1) {
-      spark.read.parquet(filesToRead.head)
-    } else {
-      val dataFrames = filesToRead.map(spark.read.parquet)
-      dataFrames.reduce(_.union(_))
-    }
+    val df = spark.read.parquet(source.path)
 
     val sourceDF = SourceDataFrame(df, None, savepointsSupported = false)
 
-    log.info("Created unified DataFrame from all Parquet files")
+    log.info("Created DataFrame from Parquet source")
 
     ScyllaMigrator.migrate(config, target, sourceDF)
 

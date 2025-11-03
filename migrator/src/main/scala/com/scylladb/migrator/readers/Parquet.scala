@@ -25,10 +25,6 @@ case class ParquetReaderWithSavepoints(source: SourceSettings.Parquet,
 object Parquet {
   val log = LogManager.getLogger("com.scylladb.migrator.readers.Parquet")
 
-  /**
-    * Main entry point for Parquet-to-Scylla migration.
-    * Selects the appropriate processing strategy based on configuration.
-    */
   def migrateToScylla(config: MigratorConfig,
                       source: SourceSettings.Parquet,
                       target: TargetSettings.Scylla)(implicit spark: SparkSession): Unit = {

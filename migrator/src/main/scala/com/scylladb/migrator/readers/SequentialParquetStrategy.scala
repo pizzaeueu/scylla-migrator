@@ -7,21 +7,6 @@ import org.apache.spark.sql.SparkSession
 
 import scala.util.Using
 
-/**
-  * Sequential Parquet processing strategy with savepoint support.
-  *
-  * Processes Parquet files one-by-one, marking each file as completed after successful
-  * processing. This enables resuming from the last completed file if the migration is
-  * interrupted.
-  *
-  * Use this strategy when:
-  * - Savepoints are required to resume interrupted migrations
-  * - The migration involves many large files that may take hours or days
-  * - Resilience to failures is more important than absolute maximum performance
-  *
-  * Trade-off: Adds ~10-20% overhead compared to parallel processing due to
-  * per-file Spark job overhead, but provides reliable progress tracking.
-  */
 class SequentialParquetStrategy extends ParquetProcessingStrategy {
   private val log = LogManager.getLogger("com.scylladb.migrator.readers.SequentialParquetStrategy")
 
