@@ -58,41 +58,6 @@ object Parquet {
     ParquetReaderWithSavepoints(source, allFiles, skipFiles)
   }
 
-  @deprecated(
-    "Use prepareParquetReader and process files individually for savepoints support. See migrateToScylla for file-by-file processing pattern.")
-  def readDataFrame(spark: SparkSession, source: SourceSettings.Parquet): SourceDataFrame =
-    readDataFrame(spark, source, Set.empty)
-
-  @deprecated(
-    "Use prepareParquetReader and process files individually for savepoints support. See migrateToScylla function for file-by-file processing pattern.")
-  def readDataFrame(spark: SparkSession,
-                    source: SourceSettings.Parquet,
-                    skipFiles: Set[String]): SourceDataFrame = {
-    val preparedReader = prepareParquetReader(spark, source, skipFiles)
-    preparedReader.configureHadoop(spark)
-
-    val filesToRead = preparedReader.filesToProcess
-
-    if (filesToRead.isEmpty) {
-      log.warn("No files to process after filtering. Migration may be complete.")
-      val samplePath =
-        if (preparedReader.allFiles.nonEmpty) preparedReader.allFiles.head else source.path
-      val emptyDf = spark.read.parquet(samplePath).limit(0)
-      return SourceDataFrame(emptyDf, None, false)
-    }
-
-    log.info(s"Reading ${filesToRead.size} Parquet files")
-
-    val df = if (filesToRead.size == 1) {
-      spark.read.parquet(filesToRead.head)
-    } else {
-      val dataFrames = filesToRead.map(spark.read.parquet)
-      dataFrames.reduce(_.union(_))
-    }
-
-    SourceDataFrame(df, None, false)
-  }
-
   def listParquetFiles(spark: SparkSession, path: String): Seq[String] = {
     log.info(s"Discovering Parquet files in $path")
 
