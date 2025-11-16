@@ -19,4 +19,3 @@ target:
 savepoints:
   path: /app/savepoints/parquet-savepoints-test
   intervalSeconds: 1
-  parquetProcessingMode: sequential
