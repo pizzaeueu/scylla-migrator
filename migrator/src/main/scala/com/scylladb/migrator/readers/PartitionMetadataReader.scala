@@ -21,11 +21,13 @@ object PartitionMetadataReader {
 
   def readMetadata(spark: SparkSession, filePaths: Seq[String]): Seq[PartitionMetadata] = {
     logger.info(s"Reading partition metadata from ${filePaths.size} file(s)")
+    val df = spark.read.parquet(filePaths: _*)
+    readMetadataFromDataFrame(df)
+  }
 
+  def readMetadataFromDataFrame(df: org.apache.spark.sql.DataFrame): Seq[PartitionMetadata] = {
     try {
       import org.apache.spark.sql.functions._
-
-      val df = spark.read.parquet(filePaths: _*)
 
       val partitionInfo = df
         .select(input_file_name().as("filename"))

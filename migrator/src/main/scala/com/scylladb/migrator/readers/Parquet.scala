@@ -30,8 +30,16 @@ object Parquet {
 
     log.info(s"Processing ${filesToProcess.size} Parquet files")
 
+    // Read the DataFrame first
+    val df = if (skipFiles.isEmpty) {
+      spark.read.parquet(source.path)
+    } else {
+      spark.read.parquet(filesToProcess: _*)
+    }
+
+    // Read partition metadata from the SAME DataFrame that will be used for migration
     log.info("Reading partition metadata for file tracking...")
-    val metadata = PartitionMetadataReader.readMetadata(spark, filesToProcess)
+    val metadata = PartitionMetadataReader.readMetadataFromDataFrame(df)
 
     val partitionToFile = PartitionMetadataReader.buildPartitionToFileMap(metadata)
     val fileToPartitions = PartitionMetadataReader.buildFileToPartitionsMap(metadata)
@@ -48,12 +56,6 @@ object Parquet {
       spark.sparkContext.addSparkListener(listener)
 
       try {
-        val df = if (skipFiles.isEmpty) {
-          spark.read.parquet(source.path)
-        } else {
-          spark.read.parquet(filesToProcess: _*)
-        }
-
         val sourceDF = SourceDataFrame(df, None, savepointsSupported = false)
 
         log.info("Created DataFrame from Parquet source")
