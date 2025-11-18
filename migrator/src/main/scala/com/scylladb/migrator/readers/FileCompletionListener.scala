@@ -45,7 +45,7 @@ class FileCompletionListener(
   override def onTaskEnd(taskEnd: SparkListenerTaskEnd): Unit =
     // Only track successfully completed tasks
     if (taskEnd.reason == Success) {
-      val partitionId = taskEnd.taskInfo.index
+      val partitionId = taskEnd.taskInfo.partitionId
 
       // Check if this partition is one we're tracking
       partitionToFile.get(partitionId) match {
@@ -65,7 +65,7 @@ class FileCompletionListener(
     } else {
       // Task failed or was killed
       log.debug(
-        s"Task for partition ${taskEnd.taskInfo.index} did not complete successfully: ${taskEnd.reason}")
+        s"Task for partition ${taskEnd.taskInfo.partitionId} did not complete successfully: ${taskEnd.reason}")
     }
 
   /**
