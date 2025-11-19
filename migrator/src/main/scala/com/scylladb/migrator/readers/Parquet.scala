@@ -41,7 +41,7 @@ object Parquet {
     log.info("Reading partition metadata for file tracking...")
     val metadata = PartitionMetadataReader.readMetadataFromDataFrame(df)
 
-    val partitionToFile = PartitionMetadataReader.buildPartitionToFileMap(metadata)
+    val partitionToFiles = PartitionMetadataReader.buildPartitionToFileMap(metadata)
     val fileToPartitions = PartitionMetadataReader.buildFileToPartitionsMap(metadata)
 
     log.info(
@@ -49,7 +49,7 @@ object Parquet {
 
     Using.resource(ParquetSavepointsManager(config, spark.sparkContext)) { savepointsManager =>
       val listener = new FileCompletionListener(
-        partitionToFile,
+        partitionToFiles,
         fileToPartitions,
         savepointsManager
       )

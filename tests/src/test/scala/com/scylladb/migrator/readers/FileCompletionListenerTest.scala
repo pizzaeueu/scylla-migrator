@@ -66,9 +66,9 @@ class FileCompletionListenerTest extends munit.FunSuite {
       try {
         // Setup: 3 files, each with 1 partition
         val partitionToFile = Map(
-          0 -> "file1.parquet",
-          1 -> "file2.parquet",
-          2 -> "file3.parquet"
+          0 -> Set("file1.parquet"),
+          1 -> Set("file2.parquet"),
+          2 -> Set("file3.parquet")
         )
 
         val fileToPartitions = Map(
@@ -131,11 +131,11 @@ class FileCompletionListenerTest extends munit.FunSuite {
 
       try {
         val partitionToFile = Map(
-          0 -> "file1.parquet",
-          1 -> "file1.parquet",
-          2 -> "file1.parquet",
-          3 -> "file2.parquet",
-          4 -> "file2.parquet"
+          0 -> Set("file1.parquet"),
+          1 -> Set("file1.parquet"),
+          2 -> Set("file1.parquet"),
+          3 -> Set("file2.parquet"),
+          4 -> Set("file2.parquet")
         )
 
         val fileToPartitions = Map(
@@ -198,8 +198,8 @@ class FileCompletionListenerTest extends munit.FunSuite {
 
       try {
         val partitionToFile = Map(
-          0 -> "file1.parquet",
-          1 -> "file2.parquet"
+          0 -> Set("file1.parquet"),
+          1 -> Set("file2.parquet")
         )
 
         val fileToPartitions = Map(
@@ -251,7 +251,7 @@ class FileCompletionListenerTest extends munit.FunSuite {
       val manager = ParquetSavepointsManager(config, spark.sparkContext)
 
       try {
-        val partitionToFile = Map(0 -> "file1.parquet")
+        val partitionToFile = Map(0 -> Set("file1.parquet"))
         val fileToPartitions = Map("file1.parquet" -> Set(0))
 
         val listener = new FileCompletionListener(
@@ -297,10 +297,10 @@ class FileCompletionListenerTest extends munit.FunSuite {
 
       try {
         val partitionToFile = Map(
-          0 -> "file1.parquet",
-          1 -> "file2.parquet",
-          2 -> "file3.parquet",
-          3 -> "file4.parquet"
+          0 -> Set("file1.parquet"),
+          1 -> Set("file2.parquet"),
+          2 -> Set("file3.parquet"),
+          3 -> Set("file4.parquet")
         )
 
         val fileToPartitions = Map(
@@ -360,9 +360,9 @@ class FileCompletionListenerTest extends munit.FunSuite {
 
       try {
         val partitionToFile = Map(
-          0 -> "file1.parquet",
-          1 -> "file1.parquet",
-          2 -> "file2.parquet"
+          0 -> Set("file1.parquet"),
+          1 -> Set("file1.parquet"),
+          2 -> Set("file2.parquet")
         )
 
         val fileToPartitions = Map(
@@ -390,6 +390,52 @@ class FileCompletionListenerTest extends munit.FunSuite {
         assert(file1CompleteReport.contains("1/2 files"))
         assert(file1CompleteReport.contains("2/3 partitions"))
 
+      } finally {
+        manager.close()
+      }
+
+    } finally {
+      Files.walk(tempDir)
+        .sorted(java.util.Comparator.reverseOrder())
+        .forEach(Files.delete)
+    }
+  }
+
+  test("FileCompletionListener handles multiple files per partition") {
+    val tempDir = Files.createTempDirectory("savepoints-listener-multi-file-partition-test")
+
+    try {
+      val config = MigratorConfig(
+        source = SourceSettings.Parquet("dummy", None, None, None),
+        target = null,
+        renames = None,
+        savepoints = com.scylladb.migrator.config.Savepoints(300, tempDir.toString),
+        skipTokenRanges = None,
+        skipSegments = None,
+        skipParquetFiles = None,
+        validation = None
+      )
+
+      val manager = ParquetSavepointsManager(config, spark.sparkContext)
+
+      try {
+        val partitionToFile = Map(0 -> Set("file1.parquet", "file2.parquet"))
+        val fileToPartitions = Map(
+          "file1.parquet" -> Set(0),
+          "file2.parquet" -> Set(0)
+        )
+
+        val listener = new FileCompletionListener(
+          partitionToFile,
+          fileToPartitions,
+          manager
+        )
+
+        listener.onTaskEnd(createMockTaskEnd(0))
+
+        assertEquals(listener.getCompletedFilesCount, 2)
+        assert(listener.getCompletedFiles.contains("file1.parquet"))
+        assert(listener.getCompletedFiles.contains("file2.parquet"))
       } finally {
         manager.close()
       }

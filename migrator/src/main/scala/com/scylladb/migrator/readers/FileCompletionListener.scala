@@ -21,7 +21,7 @@ import scala.collection.concurrent.TrieMap
   * @param savepointsManager Manager to notify when files are completed
   */
 class FileCompletionListener(
-  partitionToFile: Map[Int, String],
+  partitionToFiles: Map[Int, Set[String]],
   fileToPartitions: Map[String, Set[Int]],
   savepointsManager: ParquetSavepointsManager
 ) extends SparkListener {
@@ -36,7 +36,7 @@ class FileCompletionListener(
 
   log.info(
     s"FileCompletionListener initialized: tracking ${fileToPartitions.size} files " +
-      s"across ${partitionToFile.size} partitions")
+      s"across ${partitionToFiles.size} partitions")
 
   /**
     * Called when a Spark task completes (successfully or not).
@@ -48,13 +48,15 @@ class FileCompletionListener(
       val partitionId = taskEnd.taskInfo.partitionId
 
       // Check if this partition is one we're tracking
-      partitionToFile.get(partitionId) match {
-        case Some(filename) =>
+      partitionToFiles.get(partitionId) match {
+        case Some(filenames) =>
           // Mark partition as complete (idempotent - only process if new)
           // putIfAbsent returns None if key was absent (successfully inserted)
           if (completedPartitions.putIfAbsent(partitionId, true).isEmpty) {
-            log.debug(s"Partition $partitionId completed (file: $filename)")
-            checkFileCompletion(filename)
+            filenames.foreach { filename =>
+              log.debug(s"Partition $partitionId completed (file: $filename)")
+              checkFileCompletion(filename)
+            }
           }
 
         case None =>
@@ -125,7 +127,7 @@ class FileCompletionListener(
     val filesCompleted = completedFiles.size
     val totalFiles = fileToPartitions.size
     val partitionsCompleted = completedPartitions.size
-    val totalPartitions = partitionToFile.size
+    val totalPartitions = partitionToFiles.size
     val percentage = f"${getCompletionPercentage}%.1f"
 
     s"Progress: $filesCompleted/$totalFiles files ($percentage%%), " +

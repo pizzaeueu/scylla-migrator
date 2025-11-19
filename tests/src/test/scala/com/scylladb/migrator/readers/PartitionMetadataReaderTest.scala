@@ -79,9 +79,22 @@ class PartitionMetadataReaderTest extends munit.FunSuite {
     val partitionToFile = PartitionMetadataReader.buildPartitionToFileMap(metadata)
 
     assertEquals(partitionToFile.size, 3)
-    assertEquals(partitionToFile(0), "file1.parquet")
-    assertEquals(partitionToFile(1), "file1.parquet")
-    assertEquals(partitionToFile(2), "file2.parquet")
+    assertEquals(partitionToFile(0), Set("file1.parquet"))
+    assertEquals(partitionToFile(1), Set("file1.parquet"))
+    assertEquals(partitionToFile(2), Set("file2.parquet"))
+  }
+
+  test("buildPartitionToFileMap groups multiple files per partition") {
+    val metadata = Seq(
+      PartitionMetadata(0, "file1.parquet"),
+      PartitionMetadata(0, "file2.parquet"),
+      PartitionMetadata(1, "file3.parquet")
+    )
+
+    val partitionToFile = PartitionMetadataReader.buildPartitionToFileMap(metadata)
+
+    assertEquals(partitionToFile(0), Set("file1.parquet", "file2.parquet"))
+    assertEquals(partitionToFile(1), Set("file3.parquet"))
   }
 
   test("file filtering logic works correctly") {

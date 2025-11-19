@@ -25,7 +25,7 @@ object PartitionMetadataReader {
     readMetadataFromDataFrame(df)
   }
 
-  def readMetadataFromDataFrame(df: org.apache.spark.sql.DataFrame): Seq[PartitionMetadata] = {
+  def readMetadataFromDataFrame(df: org.apache.spark.sql.DataFrame): Seq[PartitionMetadata] =
     try {
       import org.apache.spark.sql.functions._
 
@@ -63,7 +63,6 @@ object PartitionMetadataReader {
         logger.error(s"Failed to read partition metadata", e)
         throw new RuntimeException(s"Could not read partition metadata: ${e.getMessage}", e)
     }
-  }
 
   def buildFileToPartitionsMap(metadata: Seq[PartitionMetadata]): Map[String, Set[Int]] = {
     val result = metadata
@@ -76,8 +75,13 @@ object PartitionMetadataReader {
     result
   }
 
-  def buildPartitionToFileMap(metadata: Seq[PartitionMetadata]): Map[Int, String] = {
-    val result = metadata.map(m => m.partitionId -> m.filename).toMap
+  def buildPartitionToFileMap(metadata: Seq[PartitionMetadata]): Map[Int, Set[String]] = {
+    val result = metadata
+      .groupBy(_.partitionId)
+      .view
+      .mapValues(_.map(_.filename).toSet)
+      .toMap
+
     logger.debug(s"Built partition-to-file map with ${result.size} partitions")
     result
   }
