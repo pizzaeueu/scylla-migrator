@@ -10,7 +10,8 @@ import scala.util.chaining._
 
 class ParquetResumeIntegrationTest extends ParquetMigratorSuite {
 
-  private val configFileName: String = "parquet-to-scylla-resume.yaml"
+  private val resumeConfig: String = "parquet-to-scylla-resume.yaml"
+  private val resumeAllProcessedConfig: String = "parquet-to-scylla-resume2.yaml"
 
   withTableAndSavepoints("resumetest", "resume", "parquet-resume-test").test(
     "Resume migration after interruption skips already processed files"
@@ -39,7 +40,7 @@ class ParquetResumeIntegrationTest extends ParquetMigratorSuite {
     }
 
     // Run first migration
-    successfullyPerformMigration(configFileName)
+    successfullyPerformMigration(resumeConfig)
 
     // Verify first batch was migrated
     val selectAllStatement = QueryBuilder
@@ -90,7 +91,7 @@ class ParquetResumeIntegrationTest extends ParquetMigratorSuite {
     }
 
     // Phase 3: Run migration again (should skip first batch, process only second batch)
-    successfullyPerformMigration(configFileName)
+    successfullyPerformMigration(resumeConfig)
 
     // Verify all data is present (first + second batch)
     val allExpectedRows = (firstBatch ++ secondBatch)
@@ -148,7 +149,7 @@ class ParquetResumeIntegrationTest extends ParquetMigratorSuite {
     }
 
     // First run: migrate all files
-    successfullyPerformMigration(configFileName)
+    successfullyPerformMigration(resumeAllProcessedConfig)
 
     val selectAllStatement = QueryBuilder
       .selectFrom(keyspace, tableName)
@@ -159,7 +160,7 @@ class ParquetResumeIntegrationTest extends ParquetMigratorSuite {
     assertEquals(initialRowCount, 2, "Initial migration should have 2 rows")
 
     // Second run: should detect all files already processed and do nothing
-    successfullyPerformMigration(configFileName)
+    successfullyPerformMigration(resumeAllProcessedConfig)
 
     // Verify data unchanged (no duplicates)
     val finalRowCount = targetScylla().execute(selectAllStatement).all().size()
