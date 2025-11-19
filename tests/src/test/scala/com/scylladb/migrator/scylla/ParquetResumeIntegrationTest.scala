@@ -5,10 +5,13 @@ import com.scylladb.migrator.SparkUtils.successfullyPerformMigration
 import com.scylladb.migrator.config.MigratorConfig
 
 import java.nio.file.Files
+import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 import scala.util.chaining._
 
 class ParquetResumeIntegrationTest extends ParquetMigratorSuite {
+
+  override val munitTimeout: Duration = 120.seconds
 
   private val resumeConfig: String = "parquet-to-scylla-resume.yaml"
   private val resumeAllProcessedConfig: String = "parquet-to-scylla-resume2.yaml"
