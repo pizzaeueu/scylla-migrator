@@ -4,12 +4,16 @@ import com.datastax.oss.driver.api.querybuilder.QueryBuilder
 import com.scylladb.migrator.SparkUtils.successfullyPerformMigration
 import com.scylladb.migrator.config.MigratorConfig
 import java.nio.file.Files
+import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 import scala.util.chaining._
 
 class ParquetParallelModeTest extends ParquetMigratorSuite {
 
   private val configFileName: String = "parquet-to-scylla-parallel.yaml"
+  private val savepointsConfigFileName: String = "parquet-to-scylla-parallel-savepoints.yaml"
+
+  override val munitTimeout: FiniteDuration = 2.minutes
 
   FunFixture
     .map2(withTable("paralleltest"), withParquetDir("parallel"))
@@ -92,7 +96,7 @@ class ParquetParallelModeTest extends ParquetMigratorSuite {
     val expectedProcessedFiles = listDataFiles(parquetDir).map(toContainerParquetUri)
 
     // Run migration with parallel mode and savepoints
-    successfullyPerformMigration(configFileName)
+    successfullyPerformMigration(savepointsConfigFileName)
 
     // Verify all data was migrated correctly
     val selectAllStatement = QueryBuilder
@@ -132,7 +136,7 @@ class ParquetParallelModeTest extends ParquetMigratorSuite {
     // Verify idempotency: run migration again, should skip all files
     val rowCountBefore = targetScylla().execute(selectAllStatement).all().size()
 
-    successfullyPerformMigration(configFileName)
+    successfullyPerformMigration(savepointsConfigFileName)
 
     val rowCountAfter = targetScylla().execute(selectAllStatement).all().size()
 

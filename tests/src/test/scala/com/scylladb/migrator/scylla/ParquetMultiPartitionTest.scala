@@ -4,6 +4,7 @@ import com.datastax.oss.driver.api.querybuilder.QueryBuilder
 import com.scylladb.migrator.config.MigratorConfig
 
 import java.nio.file.Files
+import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 import scala.sys.process.Process
 import scala.util.chaining._
@@ -11,13 +12,18 @@ import scala.util.chaining._
 class ParquetMultiPartitionTest extends ParquetMigratorSuite {
 
   private val configFileName: String = "parquet-to-scylla-multipartition.yaml"
+  private val configFileName2: String = "parquet-to-scylla-multipartition2.yaml"
+
+  override val munitTimeout: FiniteDuration = 2.minutes
 
   /**
    * Run migration with custom Spark configuration to force file splitting.
    * This sets spark.sql.files.maxPartitionBytes to a very small value (64KB)
    * to ensure even small files get split into multiple partitions.
    */
-  private def performMigrationWithSmallPartitions(configFile: String): Unit = {
+  private def performMigrationWithSmallPartitions(
+      configFile: String = configFileName
+  ): Unit = {
     Process(
       Seq(
         "docker",
@@ -78,7 +84,7 @@ class ParquetMultiPartitionTest extends ParquetMigratorSuite {
     assertEquals(expectedProcessedFiles.size, 1, "Should have exactly 1 parquet file")
 
     // Run migration with small partition size to force splitting
-    performMigrationWithSmallPartitions(configFileName)
+    performMigrationWithSmallPartitions()
 
     // Verify all data was migrated correctly
     val selectAllStatement = QueryBuilder
@@ -115,7 +121,7 @@ class ParquetMultiPartitionTest extends ParquetMigratorSuite {
     // Verify idempotency: running again should skip the file
     val rowCountBefore = targetScylla().execute(selectAllStatement).all().size()
 
-    performMigrationWithSmallPartitions(configFileName)
+    performMigrationWithSmallPartitions()
 
     val rowCountAfter = targetScylla().execute(selectAllStatement).all().size()
 
@@ -161,7 +167,7 @@ class ParquetMultiPartitionTest extends ParquetMigratorSuite {
     assertEquals(expectedProcessedFiles.size, 3, "Should have 3 parquet files total")
 
     // Run migration
-    performMigrationWithSmallPartitions(configFileName)
+    performMigrationWithSmallPartitions(configFileName2)
 
     // Verify all data migrated
     val selectAllStatement = QueryBuilder
